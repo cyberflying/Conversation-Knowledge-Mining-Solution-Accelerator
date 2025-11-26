@@ -17,6 +17,7 @@ param solutionName string = 'kmgen'
   'northeurope'
   'southeastasia'
   'uksouth'
+  'westus'
 ])
 param location string
 
@@ -45,7 +46,7 @@ param aiServiceLocation string
 
 @minLength(1)
 @description('Optional. Location for the Content Understanding service deployment:')
-@allowed(['swedencentral', 'australiaeast'])
+@allowed(['westus', 'swedencentral', 'australiaeast'])
 @metadata({
   azd: {
     type: 'location'
@@ -176,6 +177,7 @@ var baseUrl = 'https://raw.githubusercontent.com/microsoft/Conversation-Knowledg
 var replicaRegionPairs = {
   australiaeast: 'australiasoutheast'
   centralus: 'westus'
+  westus: 'centralus'
   eastasia: 'japaneast'
   eastus: 'centralus'
   eastus2: 'centralus'
@@ -197,6 +199,7 @@ var cosmosDbZoneRedundantHaRegionPairs = {
   northeurope: 'westeurope'
   southeastasia: 'eastasia'
   uksouth: 'westeurope'
+  westus: 'centralus'
   westeurope: 'northeurope'
 }
 // Paired location calculated based on 'location' parameter. This location will be used by applicable resources if `enableScalability` is set to `true`
