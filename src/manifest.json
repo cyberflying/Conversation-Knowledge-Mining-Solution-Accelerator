@@ -1,6 +1,6 @@
 {
-  "short_name": "KM-Gen",
-  "name": "Knowledge Mining Generic",
+  "short_name": "Conv-KM",
+  "name": "Conversation Knowledge Mining",
   "icons": [
     {
       "src": "favicon.ico",
