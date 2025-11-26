@@ -17,6 +17,7 @@ param solutionName string = 'kmgen'
   'northeurope'
   'southeastasia'
   'uksouth'
+  'westus'
 ])
 param location string
 
@@ -180,6 +181,7 @@ var acrName = 'kmcontainerreg'
 var replicaRegionPairs = {
   australiaeast: 'australiasoutheast'
   centralus: 'westus'
+  westus: 'centralus'
   eastasia: 'japaneast'
   eastus: 'centralus'
   eastus2: 'centralus'
@@ -202,6 +204,7 @@ var cosmosDbZoneRedundantHaRegionPairs = {
   northeurope: 'westeurope'
   southeastasia: 'eastasia'
   uksouth: 'westeurope'
+  westus: 'centralus'
   westeurope: 'northeurope'
 }
 // Paired location calculated based on 'location' parameter. This location will be used by applicable resources if `enableScalability` is set to `true`
