@@ -26,7 +26,8 @@ import {
 import { useAppContext } from "./state/useAppContext";
 import { actionConstants } from "./state/ActionConstants";
 import { ChatMessage, Conversation } from "./types/AppTypes";
-import { AppLogo } from "./components/Svg/Svg";
+// import { AppLogo } from "./components/Svg/Svg";
+import AppLogo from "./Assets/ContosoImg.png";
 import CustomSpinner from "./components/CustomSpinner/CustomSpinner";
 import CitationPanel from "./components/CitationPanel/CitationPanel";
 const panels = {
@@ -289,7 +290,8 @@ const Dashboard: React.FC = () => {
       <CustomSpinner loading={state.showAppSpinner} label="Please wait.....!" />
       <div className="header">
         <div className="header-left-section">
-          <AppLogo />
+          // <AppLogo />
+          <img src={AppLogo} alt="Logo" style={{ width: '30px' }} />
           <Subtitle2>
             Woodgrove <Body2 style={{ gap: "10px" }}>| Call Analysis</Body2>
           </Subtitle2>
