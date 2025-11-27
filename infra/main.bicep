@@ -52,11 +52,11 @@ param aiServiceLocation string
     type: 'location'
   }
 })
-param contentUnderstandingLocation string = 'swedencentral'
+param contentUnderstandingLocation string = 'westus'
 
 @minLength(1)
 @description('Optional. Secondary location for databases creation(example:eastus2):')
-param secondaryLocation string = 'eastus2'
+param secondaryLocation string = 'westus'
 
 @minLength(1)
 @description('Optional. GPT model deployment type:')
