@@ -6,7 +6,7 @@ from azure.keyvault.secrets import SecretClient
 
 from content_understanding_client import AzureContentUnderstandingClient
 from azure_credential_utils import get_azure_credential
-
+import requests
 
 import sys
 
@@ -51,5 +51,11 @@ client = AzureContentUnderstandingClient(
 )
 
 # Create Analyzer
-response = client.begin_create_analyzer(ANALYZER_ID, analyzer_template_path=ANALYZER_TEMPLATE_FILE)
-result = client.poll_result(response)
+try:
+    response = client.begin_create_analyzer(ANALYZER_ID, analyzer_template_path=ANALYZER_TEMPLATE_FILE)
+    result = client.poll_result(response)
+except requests.exceptions.HTTPError as e:
+    if e.response.status_code == 409:
+        print(f"Analyzer '{ANALYZER_ID}' already exists. Skipping creation.")
+    else:
+        raise e
