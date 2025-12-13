@@ -170,6 +170,11 @@ def prepare_search_doc(content, document_id, path_name):
         })
     return docs
 
+def get_field_value(fields, field_name, default=""):
+    field = fields.get(field_name, {})
+    return field.get('valueString', default)
+
+
 ANALYZER_ID = "ckm-json"
 # Process files and insert into DB and Search - transcripts
 conversationIds, docs, counter = [], [], 0
@@ -190,13 +195,14 @@ for path in paths:
         end_timestamp = str(start_timestamp + timedelta(seconds=duration)).split(".")[0]
         start_timestamp = str(start_timestamp).split(".")[0]
         fields = result['result']['contents'][0]['fields']
-        summary = fields['summary']['valueString']
-        satisfied = fields['satisfied']['valueString']
-        sentiment = fields['sentiment']['valueString']
-        topic = fields['topic']['valueString']
-        key_phrases = fields['keyPhrases']['valueString']
-        complaint = fields['complaint']['valueString']
-        content = fields['content']['valueString']
+        summary = get_field_value(fields, 'summary')
+        satisfied = get_field_value(fields, 'satisfied')
+        sentiment = get_field_value(fields, 'sentiment')
+        topic = get_field_value(fields, 'topic')
+        key_phrases = get_field_value(fields, 'keyPhrases')
+        complaint = get_field_value(fields, 'complaint')
+        content = get_field_value(fields, 'content')
+        
         cursor.execute(
             "INSERT INTO processed_data (ConversationId, EndTime, StartTime, Content, summary, satisfied, sentiment, topic, key_phrases, complaint) VALUES (?,?,?,?,?,?,?,?,?,?)",
             (conversation_id, end_timestamp, start_timestamp, content, summary, satisfied, sentiment, topic, key_phrases, complaint)
