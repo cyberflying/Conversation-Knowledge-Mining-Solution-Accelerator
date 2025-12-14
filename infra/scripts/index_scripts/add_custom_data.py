@@ -191,10 +191,16 @@ for path in paths:
         start_timestamp = datetime.strptime(start_time, timestamp_format)
         conversation_id = file_name.split('convo_', 1)[1].split('_')[0]
         conversationIds.append(conversation_id)
-        duration = int(result['result']['contents'][0]['fields']['Duration']['valueString'])
+
+        fields = result['result']['contents'][0]['fields']
+        duration_str = get_field_value(fields, 'Duration', '0')
+        try:
+            duration = int(duration_str)
+        except (ValueError, TypeError):
+            duration = 0
+
         end_timestamp = str(start_timestamp + timedelta(seconds=duration)).split(".")[0]
         start_timestamp = str(start_timestamp).split(".")[0]
-        fields = result['result']['contents'][0]['fields']
         summary = get_field_value(fields, 'summary')
         satisfied = get_field_value(fields, 'satisfied')
         sentiment = get_field_value(fields, 'sentiment')
@@ -250,19 +256,25 @@ for path in paths:
         conversation_id = file_name.split('convo_', 1)[1].split('_')[0]
         conversationIds.append(conversation_id)
 
-        duration = int(result['result']['contents'][0]['fields']['Duration']['valueString'])
+        fields = result['result']['contents'][0]['fields']
+        duration_str = get_field_value(fields, 'Duration', '0')
+        try:
+            duration = int(duration_str)
+        except (ValueError, TypeError):
+            duration = 0
+
         end_timestamp = str(start_timestamp + timedelta(seconds=duration))
         end_timestamp = end_timestamp.split(".")[0]
         start_timestamp = str(start_timestamp).split(".")[0]
 
-        summary = result['result']['contents'][0]['fields']['summary']['valueString']
-        satisfied = result['result']['contents'][0]['fields']['satisfied']['valueString']
-        sentiment = result['result']['contents'][0]['fields']['sentiment']['valueString']
-        topic = result['result']['contents'][0]['fields']['topic']['valueString']
-        key_phrases = result['result']['contents'][0]['fields']['keyPhrases']['valueString']
-        complaint = result['result']['contents'][0]['fields']['complaint']['valueString']
-        content = result['result']['contents'][0]['fields']['content']['valueString']
-        # print(topic)
+        summary = get_field_value(fields, 'summary')
+        satisfied = get_field_value(fields, 'satisfied')
+        sentiment = get_field_value(fields, 'sentiment')
+        topic = get_field_value(fields, 'topic')
+        key_phrases = get_field_value(fields, 'keyPhrases')
+        complaint = get_field_value(fields, 'complaint')
+        content = get_field_value(fields, 'content')
+
         cursor.execute(f"INSERT INTO processed_data (ConversationId, EndTime, StartTime, Content, summary, satisfied, sentiment, topic, key_phrases, complaint) VALUES (?,?,?,?,?,?,?,?,?,?)", (conversation_id, end_timestamp, start_timestamp, content, summary, satisfied, sentiment, topic, key_phrases, complaint))    
         conn.commit()
     
