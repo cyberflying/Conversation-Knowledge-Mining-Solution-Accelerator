@@ -1,73 +1,73 @@
+import argparse
 import json
-import re
-import time
+import os
+import regex as re
 import struct
-import sys
-import pyodbc
-import pandas as pd
+import time
 from datetime import datetime, timedelta
 from urllib.parse import urlparse
-from azure.identity import get_bearer_token_provider
-from azure.keyvault.secrets import SecretClient
-from azure.search.documents import SearchClient
-from azure.search.documents.indexes import SearchIndexClient
-from azure.storage.filedatalake import DataLakeServiceClient
+
+import pandas as pd
+import pyodbc
 from azure.ai.inference import ChatCompletionsClient, EmbeddingsClient
 from azure.ai.inference.models import SystemMessage, UserMessage
-from content_understanding_client import AzureContentUnderstandingClient
-from azure_credential_utils import get_azure_credential
+from azure.identity import AzureCliCredential, get_bearer_token_provider
+from azure.search.documents import SearchClient
+from azure.search.documents.indexes import SearchIndexClient
 from azure.search.documents.indexes.models import (
-    SearchField,
-    SearchFieldDataType,
-    VectorSearch,
-    HnswAlgorithmConfiguration,
-    VectorSearchProfile,
     AzureOpenAIVectorizer,
     AzureOpenAIVectorizerParameters,
+    HnswAlgorithmConfiguration,
+    SearchField,
+    SearchFieldDataType,
+    SearchIndex,
     SemanticConfiguration,
-    SemanticSearch,
-    SemanticPrioritizedFields,
     SemanticField,
-    SearchIndex
+    SemanticPrioritizedFields,
+    SemanticSearch,
+    VectorSearch,
+    VectorSearchProfile,
 )
+from azure.storage.filedatalake import DataLakeServiceClient
 
-
-# Handle the parameters here
-arg1 = ''
-if len(sys.argv) == 2:
-    arg1 = sys.argv[1]
-else:
-    print("Please provide the Key Vault name as the command-line argument.")
-    sys.exit()
+from content_understanding_client import AzureContentUnderstandingClient
 
 # Constants and configuration
-KEY_VAULT_NAME = arg1
-MANAGED_IDENTITY_CLIENT_ID = 'mici_to-be-replaced'
 FILE_SYSTEM_CLIENT_NAME = "data"
 DIRECTORY = 'custom_transcripts'
 AUDIO_DIRECTORY = 'custom_audiodata'
 INDEX_NAME = "call_transcripts_index"
 
-def get_secrets_from_kv(kv_name, secret_name):
-    kv_credential = get_azure_credential(client_id=MANAGED_IDENTITY_CLIENT_ID)
-    secret_client = SecretClient(vault_url=f"https://{kv_name}.vault.azure.net/", credential=kv_credential)
-    return secret_client.get_secret(secret_name).value
+# Parse command-line arguments
+parser = argparse.ArgumentParser(description='Process custom data for knowledge mining')
+parser.add_argument('--search_endpoint', required=True, help='Azure AI Search endpoint')
+parser.add_argument('--openai_endpoint', required=True, help='Azure OpenAI endpoint')
+parser.add_argument('--ai_project_endpoint', required=True, help='Azure AI Project endpoint')
+parser.add_argument('--deployment_model', required=True, help='Azure OpenAI deployment model name')
+parser.add_argument('--embedding_model', required=True, help='Azure OpenAI embedding model name')
+parser.add_argument('--storage_account_name', required=True, help='Azure Storage Account name')
+parser.add_argument('--sql_server', required=True, help='Azure SQL Server name')
+parser.add_argument('--sql_database', required=True, help='Azure SQL Database name')
+parser.add_argument('--cu_endpoint', required=True, help='Azure Content Understanding endpoint')
+parser.add_argument('--cu_api_version', required=True, help='Azure Content Understanding API version')
 
-# Retrieve secrets
-search_endpoint = get_secrets_from_kv(KEY_VAULT_NAME, "AZURE-SEARCH-ENDPOINT")
-ai_project_endpoint = get_secrets_from_kv(KEY_VAULT_NAME, "AZURE-AI-AGENT-ENDPOINT")
-deployment = get_secrets_from_kv(KEY_VAULT_NAME, "AZURE-OPENAI-DEPLOYMENT-MODEL")
-account_name = get_secrets_from_kv(KEY_VAULT_NAME, "ADLS-ACCOUNT-NAME")
-server = get_secrets_from_kv(KEY_VAULT_NAME, "SQLDB-SERVER")
-database = get_secrets_from_kv(KEY_VAULT_NAME, "SQLDB-DATABASE")
-azure_ai_endpoint = get_secrets_from_kv(KEY_VAULT_NAME, "AZURE-OPENAI-CU-ENDPOINT")
-azure_ai_api_version = "2024-12-01-preview"
-embedding_model = get_secrets_from_kv(KEY_VAULT_NAME, "AZURE-OPENAI-EMBEDDING-MODEL")
-print("Secrets retrieved.")
+args = parser.parse_args()
+
+# Assign arguments to variables
+SEARCH_ENDPOINT = args.search_endpoint
+OPENAI_ENDPOINT = args.openai_endpoint
+AI_PROJECT_ENDPOINT = args.ai_project_endpoint
+DEPLOYMENT_MODEL = args.deployment_model
+EMBEDDING_MODEL = args.embedding_model
+STORAGE_ACCOUNT_NAME = args.storage_account_name
+SQL_SERVER = args.sql_server
+SQL_DATABASE = args.sql_database
+CU_ENDPOINT = args.cu_endpoint
+CU_API_VERSION = args.cu_api_version
 
 # Azure DataLake setup
-account_url = f"https://{account_name}.dfs.core.windows.net"
-credential = get_azure_credential(client_id=MANAGED_IDENTITY_CLIENT_ID)
+account_url = f"https://{STORAGE_ACCOUNT_NAME}.dfs.core.windows.net"
+credential = AzureCliCredential(process_timeout=30)
 service_client = DataLakeServiceClient(account_url, credential=credential, api_version='2023-01-03')
 file_system_client = service_client.get_file_system_client(FILE_SYSTEM_CLIENT_NAME)
 directory_name = DIRECTORY
@@ -75,13 +75,12 @@ paths = list(file_system_client.get_paths(path=directory_name))
 print("Azure DataLake setup complete.")
 
 # Azure Search setup
-search_credential = get_azure_credential(client_id=MANAGED_IDENTITY_CLIENT_ID)
-search_client = SearchClient(search_endpoint, INDEX_NAME, search_credential)
-index_client = SearchIndexClient(endpoint=search_endpoint, credential=search_credential)
+search_credential = AzureCliCredential(process_timeout=30)
+search_client = SearchClient(SEARCH_ENDPOINT, INDEX_NAME, search_credential)
 print("Azure Search setup complete.")
 
 # Azure AI Foundry (Inference) clients (Managed Identity)
-inference_endpoint = f"https://{urlparse(ai_project_endpoint).netloc}/models"
+inference_endpoint = f"https://{urlparse(AI_PROJECT_ENDPOINT).netloc}/models"
 
 chat_client = ChatCompletionsClient(
     endpoint=inference_endpoint,
@@ -96,21 +95,30 @@ embeddings_client = EmbeddingsClient(
 )
 
 # SQL Server setup
-driver = "{ODBC Driver 17 for SQL Server}"
-token_bytes = credential.get_token("https://database.windows.net/.default").token.encode("utf-16-LE")
-token_struct = struct.pack(f"<I{len(token_bytes)}s", len(token_bytes), token_bytes)
-SQL_COPT_SS_ACCESS_TOKEN = 1256
-connection_string = f"DRIVER={driver};SERVER={server};DATABASE={database};"
-conn = pyodbc.connect(connection_string, attrs_before={SQL_COPT_SS_ACCESS_TOKEN: token_struct})
-cursor = conn.cursor()
+try: 
+    driver = "{ODBC Driver 18 for SQL Server}"
+    token_bytes = credential.get_token("https://database.windows.net/.default").token.encode("utf-16-LE")
+    token_struct = struct.pack(f"<I{len(token_bytes)}s", len(token_bytes), token_bytes)
+    SQL_COPT_SS_ACCESS_TOKEN = 1256
+    connection_string = f"DRIVER={driver};SERVER={SQL_SERVER};DATABASE={SQL_DATABASE};"
+    conn = pyodbc.connect(connection_string, attrs_before={SQL_COPT_SS_ACCESS_TOKEN: token_struct})
+    cursor = conn.cursor()
+except: 
+    driver = "{ODBC Driver 17 for SQL Server}"
+    token_bytes = credential.get_token("https://database.windows.net/.default").token.encode("utf-16-LE")
+    token_struct = struct.pack(f"<I{len(token_bytes)}s", len(token_bytes), token_bytes)
+    SQL_COPT_SS_ACCESS_TOKEN = 1256
+    connection_string = f"DRIVER={driver};SERVER={SQL_SERVER};DATABASE={SQL_DATABASE};"
+    conn = pyodbc.connect(connection_string, attrs_before={SQL_COPT_SS_ACCESS_TOKEN: token_struct})
+    cursor = conn.cursor()
 print("SQL Server connection established.")
 
 # Content Understanding client
-cu_credential = get_azure_credential(client_id=MANAGED_IDENTITY_CLIENT_ID)
+cu_credential = AzureCliCredential(process_timeout=30)
 cu_token_provider = get_bearer_token_provider(cu_credential, "https://cognitiveservices.azure.com/.default")
 cu_client = AzureContentUnderstandingClient(
-    endpoint=azure_ai_endpoint,
-    api_version=azure_ai_api_version,
+    endpoint=CU_ENDPOINT,
+    api_version=CU_API_VERSION,
     token_provider=cu_token_provider
 )
 print("Content Understanding client initialized.")
@@ -118,7 +126,7 @@ print("Content Understanding client initialized.")
 # Utility functions
 def get_embeddings(text: str):
     try:
-        resp = embeddings_client.embed(model=embedding_model, input=[text])
+        resp = embeddings_client.embed(model=EMBEDDING_MODEL, input=[text])
         return resp.data[0].embedding
     except Exception as e:
         print(f"Error getting embeddings: {e}")
@@ -174,7 +182,6 @@ def get_field_value(fields, field_name, default=""):
     field = fields.get(field_name, {})
     return field.get('valueString', default)
 
-
 ANALYZER_ID = "ckm-json"
 # Process files and insert into DB and Search - transcripts
 conversationIds, docs, counter = [], [], 0
@@ -201,6 +208,7 @@ for path in paths:
 
         end_timestamp = str(start_timestamp + timedelta(seconds=duration)).split(".")[0]
         start_timestamp = str(start_timestamp).split(".")[0]
+        
         summary = get_field_value(fields, 'summary')
         satisfied = get_field_value(fields, 'satisfied')
         sentiment = get_field_value(fields, 'sentiment')
@@ -208,7 +216,7 @@ for path in paths:
         key_phrases = get_field_value(fields, 'keyPhrases')
         complaint = get_field_value(fields, 'complaint')
         content = get_field_value(fields, 'content')
-        
+
         cursor.execute(
             "INSERT INTO processed_data (ConversationId, EndTime, StartTime, Content, summary, satisfied, sentiment, topic, key_phrases, complaint) VALUES (?,?,?,?,?,?,?,?,?,?)",
             (conversation_id, end_timestamp, start_timestamp, content, summary, satisfied, sentiment, topic, key_phrases, complaint)
@@ -222,19 +230,16 @@ for path in paths:
     if docs != [] and counter % 10 == 0:
         result = search_client.upload_documents(documents=docs)
         docs = []
-        print(f'{counter} uploaded to Azure Search.')
 if docs:
     search_client.upload_documents(documents=docs)
-    print(f'Final batch uploaded to Azure Search - transcripts.')
 
-print("File processing and DB/Search insertion complete - transcripts.")
+print(f"✓ Processed {counter} transcript files")
 
 # Process files for audio data
 ANALYZER_ID = "ckm-audio"
 
 directory_name = AUDIO_DIRECTORY
 paths = list(file_system_client.get_paths(path=directory_name))
-print("Processing audio files")
 docs = []
 counter = 0
 # process and upload audio files to search index - audio data
@@ -262,7 +267,7 @@ for path in paths:
             duration = int(duration_str)
         except (ValueError, TypeError):
             duration = 0
-
+        
         end_timestamp = str(start_timestamp + timedelta(seconds=duration))
         end_timestamp = end_timestamp.split(".")[0]
         start_timestamp = str(start_timestamp).split(".")[0]
@@ -274,7 +279,7 @@ for path in paths:
         key_phrases = get_field_value(fields, 'keyPhrases')
         complaint = get_field_value(fields, 'complaint')
         content = get_field_value(fields, 'content')
-
+        
         cursor.execute(f"INSERT INTO processed_data (ConversationId, EndTime, StartTime, Content, summary, satisfied, sentiment, topic, key_phrases, complaint) VALUES (?,?,?,?,?,?,?,?,?,?)", (conversation_id, end_timestamp, start_timestamp, content, summary, satisfied, sentiment, topic, key_phrases, complaint))    
         conn.commit()
     
@@ -282,7 +287,6 @@ for path in paths:
 
         docs.extend(prepare_search_doc(content, document_id, path.name))
         counter += 1
-        print(f"Processed file {path.name} successfully.")
     except Exception as e:
         print(f"Error processing file {path.name}: {e}")
         pass
@@ -290,14 +294,12 @@ for path in paths:
     if docs != [] and counter % 10 == 0:
         result = search_client.upload_documents(documents=docs)
         docs = []
-        print(f' {str(counter)} uploaded')
 
 # upload the last batch
 if docs != []:
     search_client.upload_documents(documents=docs)
-    print(f'Final batch uploaded to Azure Search - audio data.')
 
-print("File processing and DB/Search insertion complete - audio data.")
+print(f"✓ Processed {counter} audio files")
 
 # Topic mining and mapping
 cursor.execute('SELECT distinct topic FROM processed_data')
@@ -311,25 +313,24 @@ cursor.execute("""CREATE TABLE km_mined_topics (
 );""")
 conn.commit()
 topics_str = ', '.join(df['topic'].tolist())
-print("Topic mining table prepared.")
 
 def call_gpt4(topics_str1, client):
     topic_prompt = f"""
         You are a data analysis assistant specialized in natural language processing and topic modeling. 
         Your task is to analyze the given text corpus and identify distinct topics present within the data.
         {topics_str1}
-        1. Identify the key topics in the text using topic modeling techniques. 
+        1. Identify the key topics in the text using topic modeling techniques.
         2. Choose the right number of topics based on data. Try to keep it up to 8 topics.
         3. Assign a clear and concise label to each topic based on its content.
         4. Provide a brief description of each topic along with its label.
         5. Add parental controls, billing issues like topics to the list of topics if the data includes calls related to them.
-        If the input data is insufficient for reliable topic modeling, indicate that more data is needed rather than making assumptions. 
+        If the input data is insufficient for reliable topic modeling, indicate that more data is needed rather than making assumptions.
         Ensure that the topics and labels are accurate, relevant, and easy to understand.
         Return the topics and their labels in JSON format.Always add 'topics' node and 'label', 'description' attributes in json.
         Do not return anything else.
     """
     response = client.complete(
-        model=deployment,
+        model=DEPLOYMENT_MODEL,
         messages=[
             SystemMessage(content="You are a helpful assistant."),
             UserMessage(content=topic_prompt),
@@ -339,8 +340,9 @@ def call_gpt4(topics_str1, client):
     res = response.choices[0].message.content
     return json.loads(res.replace("```json", '').replace("```", ''))
 
+
 max_tokens = 3096
-res = call_gpt4(topics_str, chat_client)
+res = call_gpt4(", ".join([]), chat_client)
 for object1 in res['topics']:
     cursor.execute("INSERT INTO km_mined_topics (label, description) VALUES (?,?)", (object1['label'], object1['description']))
 conn.commit()
@@ -352,14 +354,14 @@ column_names = [i[0] for i in cursor.description]
 df_topics = pd.DataFrame(rows, columns=column_names)
 mined_topics_list = df_topics['label'].tolist()
 mined_topics = ", ".join(mined_topics_list)
-print("Mined topics loaded.")
+
 
 def get_mined_topic_mapping(input_text, list_of_topics):
-    prompt = f'''You are a data analysis assistant to help find the closest topic for a given text {input_text} 
+    prompt = f'''You are a data analysis assistant to help find the closest topic for a given text {input_text}
                 from a list of topics - {list_of_topics}.
                 ALWAYS only return a topic from list - {list_of_topics}. Do not add any other text.'''
     response = chat_client.complete(
-        model=deployment,
+        model=DEPLOYMENT_MODEL,
         messages=[
             SystemMessage(content="You are a helpful assistant."),
             UserMessage(content=prompt),
@@ -367,6 +369,7 @@ def get_mined_topic_mapping(input_text, list_of_topics):
         temperature=0,
     )
     return response.choices[0].message.content
+
 
 cursor.execute('SELECT * FROM processed_data')
 rows = [tuple(row) for row in cursor.fetchall()]
@@ -377,7 +380,7 @@ for _, row in df_processed_data.iterrows():
     mined_topic_str = get_mined_topic_mapping(row['topic'], str(mined_topics_list))
     cursor.execute("UPDATE processed_data SET mined_topic = ? WHERE ConversationId = ?", (mined_topic_str, row['ConversationId']))
 conn.commit()
-print("Processed data mapped to mined topics.")
+print("The field mined_topic of the table processed_data has been updated.")
 
 # Update processed data for RAG
 # Optimization: Insert unique records from processed_data into km_processed_data
@@ -400,7 +403,6 @@ conn.commit()
 print("km_processed_data table updated.")
 
 # Update processed_data_key_phrases table
-print("Updating processed_data_key_phrases table")
 cursor.execute("""
     SELECT ConversationId, key_phrases, sentiment, mined_topic as topic, StartTime
     FROM processed_data d
@@ -432,8 +434,7 @@ cursor.execute("UPDATE [dbo].[processed_data] SET StartTime = FORMAT(DATEADD(DAY
 cursor.execute("UPDATE [dbo].[km_processed_data] SET StartTime = FORMAT(DATEADD(DAY, ?, StartTime), 'yyyy-MM-dd HH:mm:ss'), EndTime = FORMAT(DATEADD(DAY, ?, EndTime), 'yyyy-MM-dd HH:mm:ss')", (days_difference, days_difference))
 cursor.execute("UPDATE [dbo].[processed_data_key_phrases] SET StartTime = FORMAT(DATEADD(DAY, ?, StartTime), 'yyyy-MM-dd HH:mm:ss')", (days_difference,))
 conn.commit()
-print("Dates adjusted to current date.")
 
 cursor.close()
 conn.close()
-print("All steps completed. Connection closed.")
+print("✓ Data processing completed")

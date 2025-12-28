@@ -13,3 +13,4 @@ azure-keyvault-secrets==4.9.0
 pandas==2.3.0
 pyodbc==5.2.0
 # graphrag==0.3.6
+regex==2025.11.3
