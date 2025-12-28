@@ -283,7 +283,7 @@ def create_tables():
         ConversationId varchar(255) NOT NULL PRIMARY KEY,
         EndTime varchar(255),
         StartTime varchar(255),
-        Content varchar(max),
+        Content nvarchar(max),
         summary varchar(3000),
         satisfied varchar(255),
         sentiment varchar(255),
@@ -295,7 +295,7 @@ def create_tables():
     cursor.execute('DROP TABLE IF EXISTS processed_data_key_phrases')
     cursor.execute("""CREATE TABLE processed_data_key_phrases (
         ConversationId varchar(255),
-        key_phrase varchar(500),
+        key_phrase nvarchar(500),
         sentiment varchar(255),
         topic varchar(255),
         StartTime varchar(255)
@@ -470,7 +470,7 @@ cursor.execute("""CREATE TABLE km_processed_data (
     ConversationId varchar(255) NOT NULL PRIMARY KEY,
     StartTime varchar(255),
     EndTime varchar(255),
-    Content varchar(max),
+    Content nvarchar(max),
     summary varchar(max),
     satisfied varchar(255),
     sentiment varchar(255),
