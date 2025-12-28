@@ -140,7 +140,8 @@ def clean_spaces_with_regex(text):
 
 def chunk_data(text, tokens_per_chunk=1024):
     text = clean_spaces_with_regex(text)
-    sentences = text.split('. ')
+    # sentences = text.split('. ')
+    sentences = [s for s in re.split(r"(?<=\p{Sentence_Break=STerm})\s*", text) if s.strip()]
     chunks, current_chunk, current_chunk_token_count = [], '', 0
     for sentence in sentences:
         tokens = sentence.split()
