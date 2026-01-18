@@ -1,6 +1,5 @@
 import argparse
 import json
-import os
 import regex as re
 import struct
 import time
@@ -13,21 +12,6 @@ from azure.ai.inference import ChatCompletionsClient, EmbeddingsClient
 from azure.ai.inference.models import SystemMessage, UserMessage
 from azure.identity import AzureCliCredential, get_bearer_token_provider
 from azure.search.documents import SearchClient
-from azure.search.documents.indexes import SearchIndexClient
-from azure.search.documents.indexes.models import (
-    AzureOpenAIVectorizer,
-    AzureOpenAIVectorizerParameters,
-    HnswAlgorithmConfiguration,
-    SearchField,
-    SearchFieldDataType,
-    SearchIndex,
-    SemanticConfiguration,
-    SemanticField,
-    SemanticPrioritizedFields,
-    SemanticSearch,
-    VectorSearch,
-    VectorSearchProfile,
-)
 from azure.storage.filedatalake import DataLakeServiceClient
 
 from content_understanding_client import AzureContentUnderstandingClient
