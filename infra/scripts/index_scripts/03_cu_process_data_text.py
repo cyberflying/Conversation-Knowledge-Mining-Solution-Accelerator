@@ -576,7 +576,7 @@ try:
         ConversationId varchar(255) NOT NULL PRIMARY KEY,
         StartTime varchar(255),
         EndTime varchar(255),
-        Content varchar(max),
+        Content nvarchar(max),
         summary varchar(max),
         satisfied varchar(255),
         sentiment varchar(255),
