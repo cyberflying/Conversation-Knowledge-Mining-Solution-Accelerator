@@ -36,7 +36,7 @@ param location string
   azd: {
     type: 'location'
     usageName: [
-      'OpenAI.GlobalStandard.gpt-4o-mini,150'
+      'OpenAI.GlobalStandard.gpt-5.4-mini,150'
       'OpenAI.GlobalStandard.text-embedding-3-small,80'
     ]
   }
@@ -75,7 +75,7 @@ param secondaryLocation string = 'westus'
 param deploymentType string = 'GlobalStandard'
 
 @description('Optional. Name of the GPT model to deploy.')
-param gptModelName string = 'gpt-4o-mini'
+param gptModelName string = 'gpt-5.4-mini'
 
 @description('Optional. Version of the GPT model to deploy.')
 param gptModelVersion string = '2024-07-18'
@@ -691,78 +691,78 @@ module aiFoundryPrivateEndpoint 'br/public:avm/res/network/private-endpoint:0.8.
   }
 }
 
-// AI Foundry: AI Services Content Understanding
-var aiFoundryAiServicesCUResourceName = 'aif-${solutionSuffix}-cu'
-var aiServicesNameCu = 'aisa-${solutionSuffix}-cu'
-module cognitiveServicesCu 'br/public:avm/res/cognitive-services/account:0.14.1' = {
-  name: take('avm.res.cognitive-services.account.${aiFoundryAiServicesCUResourceName}', 64)
-  params: {
-    name: aiServicesNameCu
-    location: contentUnderstandingLocation
-    tags: tags
-    enableTelemetry: enableTelemetry
-    diagnosticSettings: enableMonitoring ? [{ workspaceResourceId: logAnalyticsWorkspaceResourceId }] : null
-    sku: 'S0'
-    kind: 'AIServices'
-    networkAcls: {
-      defaultAction: 'Allow'
-      virtualNetworkRules: []
-      ipRules: []
-    }
-    managedIdentities: { userAssignedResourceIds: [userAssignedIdentity!.outputs.resourceId] } //To create accounts or projects, you must enable a managed identity on your resource
-    disableLocalAuth: true
-    customSubDomainName: aiServicesNameCu
-    apiProperties: {
-      // staticsEnabled: false
-    }
-    publicNetworkAccess: enablePrivateNetworking ? 'Disabled' : 'Enabled'
-    privateEndpoints: []
-    roleAssignments: [
-      {
-        roleDefinitionIdOrName: '53ca6127-db72-4b80-b1b0-d745d6d5456d' // Azure AI User
-        principalId: userAssignedIdentity.outputs.principalId
-        principalType: 'ServicePrincipal'
-      }
-    ]
-  }
-}
+// // AI Foundry: AI Services Content Understanding
+// var aiFoundryAiServicesCUResourceName = 'aif-${solutionSuffix}-cu'
+// var aiServicesNameCu = 'aisa-${solutionSuffix}-cu'
+// module cognitiveServicesCu 'br/public:avm/res/cognitive-services/account:0.14.1' = {
+//   name: take('avm.res.cognitive-services.account.${aiFoundryAiServicesCUResourceName}', 64)
+//   params: {
+//     name: aiServicesNameCu
+//     location: contentUnderstandingLocation
+//     tags: tags
+//     enableTelemetry: enableTelemetry
+//     diagnosticSettings: enableMonitoring ? [{ workspaceResourceId: logAnalyticsWorkspaceResourceId }] : null
+//     sku: 'S0'
+//     kind: 'AIServices'
+//     networkAcls: {
+//       defaultAction: 'Allow'
+//       virtualNetworkRules: []
+//       ipRules: []
+//     }
+//     managedIdentities: { userAssignedResourceIds: [userAssignedIdentity!.outputs.resourceId] } //To create accounts or projects, you must enable a managed identity on your resource
+//     disableLocalAuth: true
+//     customSubDomainName: aiServicesNameCu
+//     apiProperties: {
+//       // staticsEnabled: false
+//     }
+//     publicNetworkAccess: enablePrivateNetworking ? 'Disabled' : 'Enabled'
+//     privateEndpoints: []
+//     roleAssignments: [
+//       {
+//         roleDefinitionIdOrName: '53ca6127-db72-4b80-b1b0-d745d6d5456d' // Azure AI User
+//         principalId: userAssignedIdentity.outputs.principalId
+//         principalType: 'ServicePrincipal'
+//       }
+//     ]
+//   }
+// }
 
-// ========== AI Services CU: Separate Private Endpoint ========== //
-module cognitiveServicesCuPrivateEndpoint 'br/public:avm/res/network/private-endpoint:0.8.1' = if (enablePrivateNetworking) {
-  name: take('pep-${aiFoundryAiServicesCUResourceName}-deployment', 64)
-  params: {
-    name: 'pep-${aiFoundryAiServicesCUResourceName}'
-    customNetworkInterfaceName: 'nic-${aiFoundryAiServicesCUResourceName}'
-    location: location
-    tags: tags
-    privateLinkServiceConnections: [
-      {
-        name: 'pep-${aiFoundryAiServicesCUResourceName}-connection'
-        properties: {
-          privateLinkServiceId: cognitiveServicesCu.outputs.resourceId
-          groupIds: ['account']
-        }
-      }
-    ]
-    privateDnsZoneGroup: {
-      privateDnsZoneGroupConfigs: [
-        {
-          name: 'ai-services-cu-dns-zone-cognitiveservices'
-          privateDnsZoneResourceId: avmPrivateDnsZones[dnsZoneIndex.cognitiveServices]!.outputs.resourceId
-        }
-        {
-          name: 'ai-services-cu-dns-zone-openai'
-          privateDnsZoneResourceId: avmPrivateDnsZones[dnsZoneIndex.openAI]!.outputs.resourceId
-        }
-        {
-          name: 'ai-services-cu-dns-zone-aiservices'
-          privateDnsZoneResourceId: avmPrivateDnsZones[dnsZoneIndex.aiServices]!.outputs.resourceId
-        }
-      ]
-    }
-    subnetResourceId: virtualNetwork!.outputs.pepsSubnetResourceId
-  }
-}
+// // ========== AI Services CU: Separate Private Endpoint ========== //
+// module cognitiveServicesCuPrivateEndpoint 'br/public:avm/res/network/private-endpoint:0.8.1' = if (enablePrivateNetworking) {
+//   name: take('pep-${aiFoundryAiServicesCUResourceName}-deployment', 64)
+//   params: {
+//     name: 'pep-${aiFoundryAiServicesCUResourceName}'
+//     customNetworkInterfaceName: 'nic-${aiFoundryAiServicesCUResourceName}'
+//     location: location
+//     tags: tags
+//     privateLinkServiceConnections: [
+//       {
+//         name: 'pep-${aiFoundryAiServicesCUResourceName}-connection'
+//         properties: {
+//           privateLinkServiceId: cognitiveServicesCu.outputs.resourceId
+//           groupIds: ['account']
+//         }
+//       }
+//     ]
+//     privateDnsZoneGroup: {
+//       privateDnsZoneGroupConfigs: [
+//         {
+//           name: 'ai-services-cu-dns-zone-cognitiveservices'
+//           privateDnsZoneResourceId: avmPrivateDnsZones[dnsZoneIndex.cognitiveServices]!.outputs.resourceId
+//         }
+//         {
+//           name: 'ai-services-cu-dns-zone-openai'
+//           privateDnsZoneResourceId: avmPrivateDnsZones[dnsZoneIndex.openAI]!.outputs.resourceId
+//         }
+//         {
+//           name: 'ai-services-cu-dns-zone-aiservices'
+//           privateDnsZoneResourceId: avmPrivateDnsZones[dnsZoneIndex.aiServices]!.outputs.resourceId
+//         }
+//       ]
+//     }
+//     subnetResourceId: virtualNetwork!.outputs.pepsSubnetResourceId
+//   }
+// }
 
 // ========== AVM WAF ========== //
 // ========== AI Foundry: AI Search ========== //
@@ -1536,11 +1536,11 @@ output STORAGE_CONTAINER_NAME string = 'data'
 @description('Resource ID of the AI Foundry.')
 output AI_FOUNDRY_RESOURCE_ID string = aiFoundryAiServices.outputs.resourceId
 
-@description('Resource ID of the Content Understanding AI Foundry.')
-output CU_FOUNDRY_RESOURCE_ID string = cognitiveServicesCu.outputs.resourceId
+// @description('Resource ID of the Content Understanding AI Foundry.')
+// output CU_FOUNDRY_RESOURCE_ID string = cognitiveServicesCu.outputs.resourceId
 
-@description('Azure OpenAI Content Understanding endpoint URL.')
-output AZURE_OPENAI_CU_ENDPOINT string = cognitiveServicesCu.outputs.endpoint
+// @description('Azure OpenAI Content Understanding endpoint URL.')
+// output AZURE_OPENAI_CU_ENDPOINT string = cognitiveServicesCu.outputs.endpoint
 
 @description('Contains API application name.')
 output API_APP_NAME string = 'api-${solutionSuffix}'
