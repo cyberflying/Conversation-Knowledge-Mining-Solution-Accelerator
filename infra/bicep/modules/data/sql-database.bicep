@@ -69,23 +69,23 @@ resource sqlServer 'Microsoft.Sql/servers@2025-01-01' = {
   }
 }
 
-resource firewallRule 'Microsoft.Sql/servers/firewallRules@2025-01-01' = {
-  name: 'AllowSpecificRange'
-  parent: sqlServer
-  properties: {
-    startIpAddress: '0.0.0.0'
-    endIpAddress: '255.255.255.255'
-  }
-}
+// resource firewallRule 'Microsoft.Sql/servers/firewallRules@2025-01-01' = {
+//   name: 'AllowSpecificRange'
+//   parent: sqlServer
+//   properties: {
+//     startIpAddress: '0.0.0.0'
+//     endIpAddress: '255.255.255.255'
+//   }
+// }
 
-resource AllowAllAzureServicesAndResourcesWithinAzureIps 'Microsoft.Sql/servers/firewallRules@2025-01-01' = {
-  name: 'AllowAllAzureServicesAndResourcesWithinAzureIps'
-  parent: sqlServer
-  properties: {
-    startIpAddress: '0.0.0.0'
-    endIpAddress: '0.0.0.0'
-  }
-}
+// resource AllowAllAzureServicesAndResourcesWithinAzureIps 'Microsoft.Sql/servers/firewallRules@2025-01-01' = {
+//   name: 'AllowAllAzureServicesAndResourcesWithinAzureIps'
+//   parent: sqlServer
+//   properties: {
+//     startIpAddress: '0.0.0.0'
+//     endIpAddress: '0.0.0.0'
+//   }
+// }
 
 resource sqlDB 'Microsoft.Sql/servers/databases@2025-01-01' = {
   parent: sqlServer
